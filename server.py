@@ -5,5 +5,6 @@ from utils import get_data_loaders
 if __name__ == "__main__":
     fl.server.start_server(
         server_address="localhost:8080",
-        config=fl.server.ServerConfig(num_rounds=5)
+        config=fl.server.ServerConfig(num_rounds=5),
+        strategy=fl.server.strategy.FedAvg()
     )
