@@ -106,8 +106,3 @@ This will create two image files: `centralized_vs_federated.png` and `federated_
 
 The experiments yield the following key results, demonstrating the viability of the federated approach.
 
-#### Performance Comparison
-![Centralized vs. Federated Performance](centralized_vs_federated.png)
-
-#### Federated Learning Progression
-![FL Performance Over Rounds](federated_learning_progression.png)
