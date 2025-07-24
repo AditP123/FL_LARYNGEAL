@@ -1,5 +1,0 @@
-flwr
-torch
-torchvision
-streamlit
-pillow
