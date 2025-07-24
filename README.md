@@ -6,7 +6,7 @@ This project demonstrates a Federated Learning (FL) system for classifying laryn
 
 ## Directory Structure
 
-Your project should be organized as follows. The `laryngeal_dataset` is not included in this repository and should be placed manually.
+The project should be organized as follows. The `laryngeal_dataset` is not included in this repository and should be placed manually.
 
 ```
 .
