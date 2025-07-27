@@ -54,7 +54,12 @@ model = build_model(num_classes)
 model.compile(
     optimizer=tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE),
     loss='categorical_crossentropy',
-    metrics=['accuracy']
+    metrics=[
+        'accuracy',
+        tf.keras.metrics.Precision(),
+        tf.keras.metrics.Recall(),
+        tf.keras.metrics.AUC()
+    ]
 )
 
 print("Model built and compiled successfully.")
@@ -70,5 +75,20 @@ history = model.fit(
 
 # --- 5. Evaluate the Final Model ---
 print("\nCentralized training finished.")
-final_loss, final_accuracy = model.evaluate(full_val_ds)
-print(f"\nBenchmark Model - Final Validation Accuracy: {final_accuracy * 100:.2f}%")
+results = model.evaluate(full_val_ds)
+final_loss = results[0]
+final_accuracy = results[1]
+final_precision = results[2]
+final_recall = results[3]
+final_auc = results[4]
+
+# Calculate F1-score from precision and recall
+final_f1 = 2 * (final_precision * final_recall) / (final_precision + final_recall) if (final_precision + final_recall) > 0 else 0
+
+print(f"\n--- Benchmark Model Final Validation Metrics ---")
+print(f"  Loss: {final_loss:.4f}")
+print(f"  Accuracy: {final_accuracy * 100:.2f}%")
+print(f"  Precision: {final_precision:.4f}")
+print(f"  Recall: {final_recall:.4f}")
+print(f"  F1-Score: {final_f1:.4f}")
+print(f"  AUC-ROC: {final_auc:.4f}")
