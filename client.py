@@ -2,6 +2,8 @@ import flwr as fl
 import tensorflow as tf
 import os
 import argparse
+import time
+import numpy as np
 from prepare_data import load_data_for_fold, DATASET_PATH
 from train_centralized import build_model
 
@@ -36,8 +38,28 @@ class LaryngealClient(fl.client.NumPyClient):
 
     def fit(self, parameters, config):
         model.set_weights(parameters)
+        
+        start_time = time.time()
         history = model.fit(train_ds, epochs=1, validation_data=val_ds, verbose=0)
-        return model.get_weights(), len(list(train_ds)), {"accuracy": history.history["accuracy"][0]}
+        end_time = time.time()
+        
+        training_time = end_time - start_time
+        
+        updated_weights = model.get_weights()
+        
+        # Calculate communication overhead more accurately
+        # Account for both incoming and outgoing model weights
+        incoming_bytes = sum(param.nbytes for param in parameters)
+        outgoing_bytes = sum(weight.nbytes for weight in updated_weights)
+        total_bytes_sent = incoming_bytes + outgoing_bytes
+        
+        print(f"Client FOLD {args.fold} - Training time: {training_time:.2f}s, Bytes sent: {total_bytes_sent/1024/1024:.2f} MB")
+        
+        return model.get_weights(), len(list(train_ds)), {
+            "accuracy": history.history["accuracy"][0],
+            "training_time": training_time,
+            "bytes_sent": total_bytes_sent
+        }
 
     def evaluate(self, parameters, config):
         model.set_weights(parameters)

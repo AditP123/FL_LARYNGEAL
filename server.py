@@ -6,6 +6,10 @@ import numpy as np
 # --- Configuration ---
 NUM_ROUNDS = 10
 
+# Global variables to track metrics across rounds
+total_communication_bytes = 0
+total_training_time_accumulated = 0
+
 # --- Define a function to aggregate the evaluation metrics ---
 def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Dict[str, Union[float, int]]:
     """An aggregation function that calculates the weighted average of all client metrics."""
@@ -27,12 +31,49 @@ def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Dict[str, Union[floa
         
     return aggregated_metrics
 
+# --- New: Define a function to aggregate fit metrics ---
+def fit_metrics_aggregation(metrics: List[Tuple[int, Metrics]]) -> Dict[str, Union[float, int]]:
+    """Aggregate fit metrics using weighted average for accuracy and summing for time and bytes."""
+    global total_communication_bytes, total_training_time_accumulated
+    
+    if not metrics:
+        return {}
+    
+    # Debug: Print received metrics
+    print(f"Aggregating fit metrics from {len(metrics)} clients:")
+    for i, (num_examples, client_metrics) in enumerate(metrics):
+        print(f"  Client {i+1}: {num_examples} examples, metrics: {client_metrics}")
+    
+    # Aggregate accuracy using weighted average
+    accuracies = [num_examples * m["accuracy"] for num_examples, m in metrics]
+    examples = [num_examples for num_examples, _ in metrics]
+    aggregated_accuracy = sum(accuracies) / sum(examples)
+    
+    # Sum training time and bytes sent for this round
+    round_training_time = sum(m["training_time"] for _, m in metrics)
+    round_bytes_sent = sum(m["bytes_sent"] for _, m in metrics)
+    
+    # Accumulate totals across all rounds
+    total_training_time_accumulated += round_training_time
+    total_communication_bytes += round_bytes_sent
+
+    aggregated = {
+        "accuracy": aggregated_accuracy,
+        "training_time": round_training_time,
+        "bytes_sent": round_bytes_sent,
+    }
+    
+    print(f"  Aggregated for this round: {aggregated}")
+    print(f"  Total accumulated - Training time: {total_training_time_accumulated:.2f}s, Bytes: {total_communication_bytes/1024/1024:.2f} MB")
+    return aggregated
+
 # Define the strategy, now including our custom metric aggregation function
 strategy = fl.server.strategy.FedAvg(
     min_available_clients=3,
     min_fit_clients=3,
     min_evaluate_clients=3,
     evaluate_metrics_aggregation_fn=weighted_average, # This ensures accuracy is aggregated
+    fit_metrics_aggregation_fn=fit_metrics_aggregation # Custom function for fit metrics
 )
 
 # Start the Flower server
@@ -46,6 +87,14 @@ history = fl.server.start_server(
 )
 
 print("Server finished.")
+
+# Debug: Print available metrics in history
+print(f"Debug - Available metrics_centralized keys: {list(history.metrics_centralized.keys()) if hasattr(history, 'metrics_centralized') and history.metrics_centralized else 'None'}")
+print(f"Debug - Available metrics_distributed keys: {list(history.metrics_distributed.keys()) if hasattr(history, 'metrics_distributed') and history.metrics_distributed else 'None'}")
+
+# Use the global accumulated values instead of trying to extract from history
+total_bytes_mb = total_communication_bytes / (1024*1024)
+
 # The history object will now contain the aggregated metrics for each round
 print("\n--- Federated Learning Final Aggregated Metrics ---")
 if history.metrics_distributed:
@@ -59,5 +108,9 @@ if history.metrics_distributed:
                 # Format metric names like f1_score to F1-score
                 formatted_name = metric_name.replace('_', '-').capitalize()
                 print(f"  {formatted_name}: {final_value:.4f}")
+    
+    print(f"  Total Training Time: {total_training_time_accumulated:.2f} seconds")
+    print(f"  Total Communication Overhead: {total_bytes_mb:.2f} MB")
+
 else:
     print("No metrics were distributed.")

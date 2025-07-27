@@ -1,5 +1,7 @@
 import tensorflow as tf
 import os
+import time
+import numpy as np
 from prepare_data import load_data_for_fold, DATASET_PATH # Import from our previous script
 
 # --- Configuration ---
@@ -67,11 +69,14 @@ model.summary()
 
 # --- 4. Train the Model ---
 print("\nStarting centralized training...")
+start_time = time.time()
 history = model.fit(
     full_train_ds,
     epochs=NUM_EPOCHS,
     validation_data=full_val_ds
 )
+end_time = time.time()
+centralized_training_time = end_time - start_time
 
 # --- 5. Evaluate the Final Model ---
 print("\nCentralized training finished.")
@@ -85,6 +90,10 @@ final_auc = results[4]
 # Calculate F1-score from precision and recall
 final_f1 = 2 * (final_precision * final_recall) / (final_precision + final_recall) if (final_precision + final_recall) > 0 else 0
 
+# --- New: Calculate Model Size ---
+model_size_bytes = np.sum([np.prod(v.shape) for v in model.get_weights()]) * 4
+model_size_mb = model_size_bytes / (1024 * 1024)
+
 print(f"\n--- Benchmark Model Final Validation Metrics ---")
 print(f"  Loss: {final_loss:.4f}")
 print(f"  Accuracy: {final_accuracy * 100:.2f}%")
@@ -92,3 +101,5 @@ print(f"  Precision: {final_precision:.4f}")
 print(f"  Recall: {final_recall:.4f}")
 print(f"  F1-Score: {final_f1:.4f}")
 print(f"  AUC-ROC: {final_auc:.4f}")
+print(f"  Training Time: {centralized_training_time:.2f} seconds")
+print(f"  Model Size: {model_size_mb:.2f} MB")
