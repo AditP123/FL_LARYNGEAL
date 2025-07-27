@@ -18,7 +18,16 @@ fold_path = os.path.join(DATASET_PATH, f'FOLD {args.fold}')
 train_ds, val_ds, num_classes = load_data_for_fold(fold_path)
 
 model = build_model(num_classes)
-model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
+model.compile(
+    optimizer="adam",
+    loss="categorical_crossentropy",
+    metrics=[
+        'accuracy',
+        tf.keras.metrics.Precision(),
+        tf.keras.metrics.Recall(),
+        tf.keras.metrics.AUC()
+    ]
+)
 
 # --- 2. Define Flower Client ---
 class LaryngealClient(fl.client.NumPyClient):
@@ -32,8 +41,19 @@ class LaryngealClient(fl.client.NumPyClient):
 
     def evaluate(self, parameters, config):
         model.set_weights(parameters)
-        loss, accuracy = model.evaluate(val_ds, verbose=0)
-        return loss, len(list(val_ds)), {"accuracy": accuracy}
+        loss, accuracy, precision, recall, auc = model.evaluate(val_ds, verbose=0)
+        num_examples = len(list(val_ds))
+        
+        # Calculate F1-score
+        f1_score = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+
+        return loss, num_examples, {
+            "accuracy": accuracy,
+            "precision": precision,
+            "recall": recall,
+            "auc": auc,
+            "f1_score": f1_score
+        }
 
 # --- 3. Start the Client ---
 fl.client.start_numpy_client(
